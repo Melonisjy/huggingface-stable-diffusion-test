@@ -10,19 +10,12 @@ async def main():
             tools = await session.list_tools()
             print("사용 가능한 툴:", [t.name for t in tools.tools])
 
+            # web_search 테스트
+            print("\n--- 웹 검색 테스트 ---")
             result = await session.call_tool(
-                "generate_image",
-                {"prompt": "a beautiful mountain landscape at sunset, digital art"}
+                "web_search",
+                {"query": "IANN Computing QUIC P2P GPU platform"}
             )
-            import base64
-            from PIL import Image
-            from io import BytesIO
-
-            img_data = result.content[0].text
-            img_data = img_data.replace("data:image/png;base64,", "")
-            img_bytes = base64.b64decode(img_data)
-            img = Image.open(BytesIO(img_bytes))
-            img.save("mcp_output.png")
-            print("mcp_output.png 저장 완료!")
+            print(result.content[0].text)
 
 asyncio.run(main())
