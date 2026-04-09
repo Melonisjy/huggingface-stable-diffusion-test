@@ -1,12 +1,19 @@
+from dotenv import load_dotenv
+load_dotenv()
+
+import os
+os.environ["HF_HOME"] = os.getenv("HF_HOME", "D:\\huggingface_cache")
+
+# HF_HOME 설정 끝난 다음에 diffusers import
 from mcp.server.fastmcp import FastMCP
 from diffusers import StableDiffusionPipeline
+from tavily import TavilyClient
 import torch
 import base64
 from io import BytesIO
 
 # 모델 로드
 print("모델 로딩 중...")
-# 모델 로드 후 강제로 safety_checker 제거
 pipe = StableDiffusionPipeline.from_pretrained(
     "prompthero/openjourney",
     torch_dtype=torch.float32,
@@ -14,7 +21,6 @@ pipe = StableDiffusionPipeline.from_pretrained(
     requires_safety_checker=False
 ).to("cuda")
 
-# 이거 추가 (강제 제거)
 pipe.safety_checker = None
 print("모델 로딩 완료!")
 
@@ -26,18 +32,33 @@ def generate_image(prompt: str) -> str:
     print(f"이미지 생성 중: {prompt}")
 
     pipe.safety_checker = None
-
     image = pipe(prompt).images[0]
-
-    # 파일 저장
     image.save("output.png")
 
-    # base64 변환
     buffer = BytesIO()
     image.save(buffer, format="PNG")
     img_base64 = base64.b64encode(buffer.getvalue()).decode()
 
     return f"data:image/png;base64,{img_base64}"
+
+@mcp.tool()
+def web_search(query: str) -> str:
+    """웹에서 최신 정보를 검색합니다"""
+    print(f"웹 검색 중: {query}")
+
+    client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+    response = client.search(query, max_results=5)
+
+    results = response.get("results", [])
+
+    if not results:
+        return "검색 결과가 없습니다."
+
+    output = []
+    for i, r in enumerate(results, 1):
+        output.append(f"{i}. {r['title']}\n   {r['url']}\n   {r.get('content', '')[:200]}")
+
+    return "\n\n".join(output)
 
 if __name__ == "__main__":
     mcp.run(transport="sse")
